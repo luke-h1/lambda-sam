@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Local Stack
+
+Globals:
+  Function:
+    Runtime: dotnet6
+    Timeout: 60
+    MemorySize: 512
+    Architectures:
+      - x86_64
+
+Resources:
+  RegisterTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: Sam::Sam.Function::RegisterTask
+      CodeUri: ./src/Sam
+      Environment:
+        Variables:
+          TasksSNS: !Ref TasksSNS
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TasksTable
+        - SNSPublishMessagePolicy:
+            TopicName: !Ref TasksSNS
+      Events:
+        RegisterTask:
+          Type: Api
+          Properties:
+            Path: /api/tasks
+            Method: post
+
+  GetTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: Sam::Sam.Function::GetTask
+      CodeUri: ./src/Sam
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TasksTable
+      Events:
+        ListTask:
+          Type: Api
+          Properties:
+            Path: /api/tasks/{taskid}
+            Method: get
+
+  ListTaskFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: Sam::Sam.Function::ListTasks
+      CodeUri: ./src/Sam
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TasksTable
+      Events:
+        ListTask:
+          Type: Api
+          Properties:
+            Path: /api/tasks
+            Method: get
+
+  RegisterAssignmentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: Sam::Sam.Function::RegisterAssignments
+      CodeUri: ./src/Sam
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt AssignmentsSQS.QueueName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AssignmentsTable
+      Events:
+        SNSEvent:
+          Type: SNS
+          Properties:
+            Topic: !Ref TasksSNS
+            SqsSubscription:
+              BatchSize: 10
+              QueueArn: !GetAtt AssignmentsSQS.Arn
+              QueueUrl: !Ref AssignmentsSQS
+
+  ListAssignmentsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: Sam::Sam.Function::ListAssignments
+      CodeUri: ./src/Sam
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AssignmentsTable
+      Events:
+        ListTask:
+          Type: Api
+          Properties:
+            Path: /api/tasks/{taskid}/assignments
+            Method: get
+
+  AssignmentsSQS:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: "assignmentsqueue"
+
+  TasksSNS:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: "taskstopic"
+
+  TasksTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: taskid
+        Type: String
+      TableName: tasks
+
+  AssignmentsTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: taskid
+        Type: String
+      TableName: assignments
+
+Outputs:
+  ApiId:
+    Description: "API Id"
+    Value: !Ref ServerlessRestApi
