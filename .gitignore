@@ -405,3 +405,4 @@ FodyWeavers.xsd
 !.env.example
 .volume
 localstack_data
+obj
