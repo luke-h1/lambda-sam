@@ -5,7 +5,7 @@ Description: >
 
 Globals:
   Function:
-    Runtime: dotnet6
+    Runtime: dotnet8
     Timeout: 60
     MemorySize: 512
     Architectures:
